@@ -23,7 +23,6 @@ func serverHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		stringToSend := fmt.Sprintf("{%s, %s}", id.String(), body)
-		fmt.Println(stringToSend)
 		resp, err := http.Post(common.LoggingServiceAddress, "text", strings.NewReader(stringToSend))
 
 		if err != nil {
@@ -38,28 +37,48 @@ func serverHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 
 	} else if r.Method == http.MethodGet {
-		resp, err := http.Get(common.LoggingServiceAddress)
+		logginServiceResult, err := getRequestToService(common.LoggingServiceAddress)
 
 		if err != nil {
 			fmt.Printf("error: %s\n", err)
 			w.WriteHeader(http.StatusInternalServerError)
-			resp.Body.Close()
 			return
 		}
 
-		result, err := ioutil.ReadAll(resp.Body)
+		messageServiceResult, err := getRequestToService(common.MessageServiceAddress)
 
 		if err != nil {
 			fmt.Printf("error: %s\n", err)
 			w.WriteHeader(http.StatusInternalServerError)
-			resp.Body.Close()
 			return
 		}
 
-		fmt.Fprint(w, string(result))
+		fmt.Fprint(w, messageServiceResult+": "+logginServiceResult)
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "Incorrect request")
 	}
+}
+
+func getRequestToService(address string) (string, error) {
+	resp, err := http.Get(address)
+
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	result, err := ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(result), nil
+
 }
 
 func main() {

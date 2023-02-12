@@ -33,12 +33,13 @@ func serverHandler(w http.ResponseWriter, r *http.Request) {
 
 	} else if r.Method == http.MethodGet {
 		values := make([]string, len(userMessages))
+		i := 0
 		for _, val := range userMessages {
-			values = append(values, val)
+			values[i] = val
+			i++
 		}
 		w.WriteHeader(http.StatusOK)
-		// fmt.Fprint(w, strings.Join(values, " "))
-		w.Write([]byte(strings.Join(values, " ")))
+		fmt.Fprint(w, strings.Join(values, " | "))
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Incorrect request")
