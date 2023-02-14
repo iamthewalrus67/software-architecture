@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"hazelcast_basics/internal/common"
+	"math/rand"
+	"os"
 	"sync"
 	"time"
 
@@ -18,7 +20,7 @@ func distributedMapDemo() {
 	common.PanicIfErr(err)
 
 	for i := 0; i < 1000; i++ {
-		mp.Set(ctx, i, i)
+		mp.Set(ctx, i, 0)
 	}
 
 }
@@ -88,6 +90,43 @@ func distributedMapWithOptimisticLocksDemo() {
 	fmt.Println("Finished. Result:", result)
 }
 
+func consumerQueue(id int) {
+	client, ctx := createNewHazelcastInstance()
+	defer client.Shutdown(ctx)
+
+	queue, err := client.GetQueue(ctx, "queue")
+	common.PanicIfErr(err)
+
+	for {
+		item, _ := queue.Take(ctx)
+		fmt.Printf("consumer %d item: %d\n", id, item)
+		if item.(int64) == -1 {
+			queue.Put(ctx, -1)
+			break
+		}
+		time.Sleep(time.Duration(rand.Intn(5)) * time.Millisecond)
+	}
+
+	fmt.Printf("Consumer %d finished\n", id)
+}
+
+func producerQueue() {
+	client, ctx := createNewHazelcastInstance()
+	defer client.Shutdown(ctx)
+
+	queue, err := client.GetQueue(ctx, "queue")
+	common.PanicIfErr(err)
+	queue.Clear(ctx)
+
+	for i := 0; i < 100; i++ {
+		queue.Put(ctx, i)
+		time.Sleep(time.Duration(rand.Intn(5)) * time.Millisecond)
+	}
+
+	queue.Put(ctx, -1)
+	fmt.Println("Producer finished")
+}
+
 func createNewHazelcastInstance() (*hazelcast.Client, context.Context) {
 	ctx := context.TODO()
 	config := hazelcast.NewConfig()
@@ -99,53 +138,99 @@ func createNewHazelcastInstance() (*hazelcast.Client, context.Context) {
 }
 
 func main() {
-	// --- No locks --
-	fmt.Println("--- No locks ---")
-	distributedMapDemo() // Reset map
+	mapDemo, queueDemo := false, false
+	for _, arg := range os.Args[1:] {
+		switch arg {
+		case "-m", "--map":
+			mapDemo = true
+			break
+		case "-q", "--queue":
+			queueDemo = true
+			break
+		default:
+			panic(fmt.Sprintln("Unknown argument", arg))
+		}
+	}
 
 	var wg sync.WaitGroup
 
-	for i := 0; i < 3; i++ {
+	// --- Map demonstration ---
+	if mapDemo {
+		fmt.Println("Distributed map demonstration")
+
+		// --- No locks --
+		fmt.Println("--- No locks ---")
+		distributedMapDemo() // Reset map
+
+		for i := 0; i < 3; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				distributedMapWithNoLocksDemo()
+			}()
+		}
+
+		wg.Wait()
+		fmt.Println()
+
+		// --- Pessimistic lock --
+		fmt.Println("--- Pessimistic lock ---")
+		distributedMapDemo() // Reset map
+
+		for i := 0; i < 3; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				distributedMapWithPessimisticLocksDemo()
+			}()
+		}
+
+		wg.Wait()
+		fmt.Println()
+
+		// --- Optimistic lock --
+		fmt.Println("--- Optimistic lock ---")
+		distributedMapDemo() // Reset map
+
+		for i := 0; i < 3; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				distributedMapWithOptimisticLocksDemo()
+			}()
+		}
+
+		wg.Wait()
+	}
+
+	// --- Bounded queue ---
+	if queueDemo {
+		if mapDemo {
+			fmt.Println() // Additional new line between tests
+		}
+		fmt.Println("Bounded queue demonstration")
+
+		// Create consumer goroutines
+		for i := 0; i < 2; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+
+				consumerQueue(i)
+			}(i)
+		}
+
+		// Create producer goroutines
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
-			distributedMapWithNoLocksDemo()
+			producerQueue()
 		}()
+
+		wg.Wait()
 	}
-
-	wg.Wait()
-	fmt.Println()
-
-	// --- Pessimistic lock --
-	fmt.Println("--- Pessimistic lock ---")
-	distributedMapDemo() // Reset map
-
-	for i := 0; i < 3; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			distributedMapWithPessimisticLocksDemo()
-		}()
-	}
-
-	wg.Wait()
-	fmt.Println()
-
-	// --- Optimistic lock --
-	fmt.Println("--- Optimistic lock ---")
-	distributedMapDemo() // Reset map
-
-	for i := 0; i < 3; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			distributedMapWithOptimisticLocksDemo()
-		}()
-	}
-
-	wg.Wait()
-
 }
