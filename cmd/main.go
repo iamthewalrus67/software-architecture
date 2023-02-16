@@ -90,11 +90,17 @@ func distributedMapWithOptimisticLocksDemo() {
 	fmt.Println("Finished. Result:", result)
 }
 
-func consumerQueue(id int) {
+func consumerQueue(id int, bounded bool) {
 	client, ctx := createNewHazelcastInstance()
 	defer client.Shutdown(ctx)
 
-	queue, err := client.GetQueue(ctx, "queue")
+	var queueName string
+	if bounded {
+		queueName = "my-queue"
+	} else {
+		queueName = "queue"
+	}
+	queue, err := client.GetQueue(ctx, queueName)
 	common.PanicIfErr(err)
 
 	for {
@@ -110,21 +116,37 @@ func consumerQueue(id int) {
 	fmt.Printf("Consumer %d finished\n", id)
 }
 
-func producerQueue() {
+func producerQueue(bounded bool) {
 	client, ctx := createNewHazelcastInstance()
 	defer client.Shutdown(ctx)
 
-	queue, err := client.GetQueue(ctx, "queue")
+	var queueName string
+	if bounded {
+		queueName = "my-queue"
+	} else {
+		queueName = "queue"
+	}
+	queue, err := client.GetQueue(ctx, queueName)
 	common.PanicIfErr(err)
-	queue.Clear(ctx)
 
 	for i := 0; i < 100; i++ {
 		queue.Put(ctx, i)
+		fmt.Println("Produced:", i)
 		time.Sleep(time.Duration(rand.Intn(5)) * time.Millisecond)
 	}
 
 	queue.Put(ctx, -1)
 	fmt.Println("Producer finished")
+}
+
+func clearQueues() {
+	client, ctx := createNewHazelcastInstance()
+
+	for _, q := range []string{"my-queue", "queue"} {
+		queue, err := client.GetQueue(ctx, q)
+		common.PanicIfErr(err)
+		queue.Clear(ctx)
+	}
 }
 
 func createNewHazelcastInstance() (*hazelcast.Client, context.Context) {
@@ -137,22 +159,35 @@ func createNewHazelcastInstance() (*hazelcast.Client, context.Context) {
 	return client, ctx
 }
 
+func timeTrack(start time.Time) {
+	elapsed := time.Since(start)
+	fmt.Println(elapsed)
+}
+
 func main() {
-	mapDemo, queueDemo := false, false
+	mapDemo, queueDemo, write, boundedQueue := false, false, false, false
 	for _, arg := range os.Args[1:] {
 		switch arg {
 		case "-m", "--map":
 			mapDemo = true
-			break
 		case "-q", "--queue":
 			queueDemo = true
-			break
+		case "-w", "--write":
+			write = true
+		case "-b", "--bounded":
+			boundedQueue = true
 		default:
 			panic(fmt.Sprintln("Unknown argument", arg))
 		}
 	}
+	queueDemo = queueDemo || boundedQueue
 
 	var wg sync.WaitGroup
+
+	if write {
+		fmt.Println("Writing to distributed map")
+		distributedMapDemo()
+	}
 
 	// --- Map demonstration ---
 	if mapDemo {
@@ -162,6 +197,7 @@ func main() {
 		fmt.Println("--- No locks ---")
 		distributedMapDemo() // Reset map
 
+		now := time.Now()
 		for i := 0; i < 3; i++ {
 			wg.Add(1)
 			go func() {
@@ -172,12 +208,15 @@ func main() {
 		}
 
 		wg.Wait()
+		timeTrack(now)
+
 		fmt.Println()
 
 		// --- Pessimistic lock --
 		fmt.Println("--- Pessimistic lock ---")
 		distributedMapDemo() // Reset map
 
+		now = time.Now()
 		for i := 0; i < 3; i++ {
 			wg.Add(1)
 			go func() {
@@ -188,12 +227,15 @@ func main() {
 		}
 
 		wg.Wait()
+		timeTrack(now)
+
 		fmt.Println()
 
 		// --- Optimistic lock --
 		fmt.Println("--- Optimistic lock ---")
 		distributedMapDemo() // Reset map
 
+		now = time.Now()
 		for i := 0; i < 3; i++ {
 			wg.Add(1)
 			go func() {
@@ -204,6 +246,8 @@ func main() {
 		}
 
 		wg.Wait()
+		timeTrack(now)
+		fmt.Println()
 	}
 
 	// --- Bounded queue ---
@@ -211,7 +255,13 @@ func main() {
 		if mapDemo {
 			fmt.Println() // Additional new line between tests
 		}
-		fmt.Println("Bounded queue demonstration")
+		if boundedQueue {
+			fmt.Println("Bounded queue demonstration")
+		} else {
+			fmt.Println("Unbounded queue demonstration")
+		}
+
+		clearQueues()
 
 		// Create consumer goroutines
 		for i := 0; i < 2; i++ {
@@ -219,7 +269,7 @@ func main() {
 			go func(i int) {
 				defer wg.Done()
 
-				consumerQueue(i)
+				consumerQueue(i, boundedQueue)
 			}(i)
 		}
 
@@ -228,7 +278,7 @@ func main() {
 		go func() {
 			defer wg.Done()
 
-			producerQueue()
+			producerQueue(boundedQueue)
 		}()
 
 		wg.Wait()
