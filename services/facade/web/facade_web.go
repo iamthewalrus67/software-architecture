@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"app/internal/common"
+	"app/internal/logging"
 	"app/services/facade/service"
 )
 
@@ -26,13 +27,14 @@ func (f *FacadeWeb) Start() {
 
 func (f *FacadeWeb) serverHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
-		log.Println("Received POST request")
+		logging.InfoLog.Println("Received POST request")
+
 		body, err := ioutil.ReadAll(r.Body)
 
 		err = f.serv.LogMessage(string(body))
 
 		if err != nil {
-			fmt.Printf("error: %s\n", err)
+			logging.ErrorLog.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 
@@ -41,25 +43,27 @@ func (f *FacadeWeb) serverHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 
 	} else if r.Method == http.MethodGet {
-		log.Println("Received GET request")
-		logginServiceResult, err := f.serv.GetAllLogs()
+		logging.InfoLog.Println("Received GET request")
+
+		logs, err := f.serv.GetAllLogsText()
 
 		if err != nil {
-			fmt.Printf("error: %s\n", err)
+			logging.ErrorLog.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		messageServiceResult, err := f.serv.GetAllMessages()
+		message, err := f.serv.GetAllMessages()
 
 		if err != nil {
-			fmt.Printf("error: %s\n", err)
+			logging.ErrorLog.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		fmt.Fprint(w, messageServiceResult+": "+logginServiceResult)
+		fmt.Fprint(w, message+": "+fmt.Sprintf("%v", logs))
 	} else {
+		logging.WarningLog.Println("Received other request")
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, "Incorrect request")
 	}

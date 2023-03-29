@@ -5,6 +5,6 @@ import (
 )
 
 func main() {
-	web := web.NewFacadeWeb()
-	web.Start()
+	facadeWeb := web.NewFacadeWeb()
+	facadeWeb.Start()
 }

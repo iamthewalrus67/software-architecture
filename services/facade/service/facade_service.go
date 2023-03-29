@@ -2,12 +2,14 @@ package service
 
 import (
 	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/google/uuid"
 
 	"app/internal/common"
+	"app/internal/logging"
 )
 
 type FacadeService struct {
@@ -22,8 +24,6 @@ func (f *FacadeService) LogMessage(msg string) error {
 
 	message := common.NewMessage(id, msg)
 
-	// stringToSend := fmt.Sprintf("{%s, %s}", id.String(), msg)
-	// _, err := http.Post(common.LoggingServiceAddress, "text", strings.NewReader(stringToSend))
 	_, err := http.Post(common.LoggingServiceAddress, "text", bytes.NewReader(message.ToJSON()))
 
 	if err != nil {
@@ -33,43 +33,50 @@ func (f *FacadeService) LogMessage(msg string) error {
 	return nil
 }
 
-// func formJSON(message string, uuid uuid.UUID) ([]byte, error) {
-// 	data := map[string]interface{}{
-// 		"message": message,
-// 		"uuid":    uuid,
-// 	}
-//
-// 	jsonData, err := json.Marshal(data)
-//
-// 	if err != nil {
-// 		logging.ErrorLog.Println("Failed to marshal json")
-// 		return make([]byte, 0), err
-// 	}
-//
-// 	return jsonData, nil
-// }
-
 func (f *FacadeService) GetAllMessages() (string, error) {
 	res, err := getRequestToService(common.MessageServiceAddress)
-
 	if err != nil {
 		return "", err
 	}
 
-	return res, nil
+	return string(res), nil
 }
 
-func (f *FacadeService) GetAllLogs() (string, error) {
+func (f *FacadeService) GetAllLogs() ([]common.Message, error) {
 	res, err := getRequestToService(common.LoggingServiceAddress)
 
 	if err != nil {
-		return "", err
+		logging.ErrorLog.Println("Failed to get logs")
+		return make([]common.Message, 0), err
 	}
 
-	return res, nil
+	messages := make([]common.Message, 1)
+	err = json.Unmarshal(res, &messages)
+
+	if err != nil {
+		logging.ErrorLog.Println("Failed to unmarshal")
+		return make([]common.Message, 0), err
+	}
+
+	return messages, nil
 }
 
-func getRequestToService(address string) (string, error) {
+func (f *FacadeService) GetAllLogsText() ([]string, error) {
+	res, err := f.GetAllLogs()
+
+	if err != nil {
+		return make([]string, 0), err
+	}
+
+	values := make([]string, len(res))
+	for i, msg := range res {
+		values[i] = msg.Text
+	}
+
+	return values, nil
+}
+
+func getRequestToService(address string) ([]byte, error) {
 	resp, err := http.Get(address)
 
 	if resp != nil {
@@ -77,15 +84,14 @@ func getRequestToService(address string) (string, error) {
 	}
 
 	if err != nil {
-		return "", err
+		return make([]byte, 0), err
 	}
 
 	result, err := ioutil.ReadAll(resp.Body)
 
 	if err != nil {
-		return "", err
+		return make([]byte, 0), err
 	}
 
-	return string(result), nil
-
+	return result, nil
 }

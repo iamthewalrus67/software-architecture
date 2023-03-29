@@ -26,3 +26,7 @@ func (m *Message) ToJSON() []byte {
 
 	return data
 }
+
+func (m *Message) String() string {
+	return m.Text
+}
