@@ -26,14 +26,10 @@ func (f *FacadeWeb) Start() {
 
 func (f *FacadeWeb) serverHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
+		log.Println("Received POST request")
 		body, err := ioutil.ReadAll(r.Body)
 
 		err = f.serv.LogMessage(string(body))
-
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
 
 		if err != nil {
 			fmt.Printf("error: %s\n", err)
@@ -45,6 +41,7 @@ func (f *FacadeWeb) serverHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 
 	} else if r.Method == http.MethodGet {
+		log.Println("Received GET request")
 		logginServiceResult, err := f.serv.GetAllLogs()
 
 		if err != nil {

@@ -1,10 +1,9 @@
 package service
 
 import (
-	"fmt"
+	"bytes"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
 
@@ -21,8 +20,11 @@ func NewFacadeService() FacadeService {
 func (f *FacadeService) LogMessage(msg string) error {
 	id := uuid.New()
 
-	stringToSend := fmt.Sprintf("{%s, %s}", id.String(), msg)
-	_, err := http.Post(common.LoggingServiceAddress, "text", strings.NewReader(stringToSend))
+	message := common.NewMessage(id, msg)
+
+	// stringToSend := fmt.Sprintf("{%s, %s}", id.String(), msg)
+	// _, err := http.Post(common.LoggingServiceAddress, "text", strings.NewReader(stringToSend))
+	_, err := http.Post(common.LoggingServiceAddress, "text", bytes.NewReader(message.ToJSON()))
 
 	if err != nil {
 		return err
@@ -30,6 +32,22 @@ func (f *FacadeService) LogMessage(msg string) error {
 
 	return nil
 }
+
+// func formJSON(message string, uuid uuid.UUID) ([]byte, error) {
+// 	data := map[string]interface{}{
+// 		"message": message,
+// 		"uuid":    uuid,
+// 	}
+//
+// 	jsonData, err := json.Marshal(data)
+//
+// 	if err != nil {
+// 		logging.ErrorLog.Println("Failed to marshal json")
+// 		return make([]byte, 0), err
+// 	}
+//
+// 	return jsonData, nil
+// }
 
 func (f *FacadeService) GetAllMessages() (string, error) {
 	res, err := getRequestToService(common.MessageServiceAddress)

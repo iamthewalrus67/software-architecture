@@ -1,15 +1,12 @@
 package logging
 
 import (
-	"fmt"
-	"time"
+	"log"
+	"os"
 )
 
-func Log(msg string) {
-	Logf("%s", msg)
-}
-
-func Logf(format string, a ...any) {
-	currentTime := time.Now()
-	fmt.Printf("[%s] %s\n", currentTime.Format("2006.01.02 15:04:05"), fmt.Sprintf(format, a...))
-}
+var (
+	WarningLog *log.Logger = log.New(os.Stdout, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
+	InfoLog    *log.Logger = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+	ErrorLog   *log.Logger = log.New(os.Stderr, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+)
