@@ -1,5 +1,6 @@
 version: "3.9"
-
+name: "swa"
+  
 services:
   facade:
     build:
@@ -28,6 +29,8 @@ services:
     networks:
       - my-network
       - hazelcast-network
+    deploy:
+      replicas: 3
   message:
     build:
       context: .
@@ -45,6 +48,8 @@ services:
     image: hazelcast/hazelcast
     networks:
       - hazelcast-network
+    deploy:
+      replicas: 3
       
 networks:
   my-network:

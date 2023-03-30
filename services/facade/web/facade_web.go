@@ -13,7 +13,7 @@ import (
 
 type FacadeWeb struct {
 	port string
-	serv service.FacadeService
+	serv *service.FacadeService
 }
 
 func NewFacadeWeb() FacadeWeb {
@@ -21,7 +21,6 @@ func NewFacadeWeb() FacadeWeb {
 }
 
 func (f *FacadeWeb) Start() {
-	fmt.Println(f.port)
 	log.Fatal(http.ListenAndServe(f.port, http.HandlerFunc(f.serverHandler)))
 }
 

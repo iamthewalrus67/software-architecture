@@ -15,8 +15,8 @@ import (
 type FacadeService struct {
 }
 
-func NewFacadeService() FacadeService {
-	return FacadeService{}
+func NewFacadeService() *FacadeService {
+	return &FacadeService{}
 }
 
 func (f *FacadeService) LogMessage(msg string) error {

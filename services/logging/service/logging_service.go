@@ -10,7 +10,7 @@ type LoggingService struct {
 }
 
 func NewLoggingService() *LoggingService {
-	return NewLoggingServiceWithRepository(repository.NewMemoryRepository())
+	return NewLoggingServiceWithRepository(repository.NewHazelcastRepository())
 }
 
 func NewLoggingServiceWithRepository(repo repository.LoggingRepository) *LoggingService {
