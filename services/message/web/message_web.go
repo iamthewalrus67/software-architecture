@@ -3,16 +3,18 @@ package web
 import (
 	"app/internal/common"
 	"app/internal/logging"
+	"app/services/message/service"
 	"fmt"
 	"net/http"
 )
 
 type MessageWeb struct {
-	port string
+	port    string
+	service service.MessageService
 }
 
 func NewMessageWeb() *MessageWeb {
-	return &MessageWeb{port: common.MessageServicePort}
+	return &MessageWeb{port: common.MessageServicePort, service: *service.NewMessageService()}
 }
 
 func (m *MessageWeb) serverHandler(w http.ResponseWriter, r *http.Request) {
@@ -30,5 +32,7 @@ func (m *MessageWeb) serverHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *MessageWeb) Start() {
+	logging.InfoLog.Println("Started message service")
+	m.service.StartConsumer()
 	logging.ErrorLog.Fatal(http.ListenAndServe(common.MessageServicePort, http.HandlerFunc(m.serverHandler)))
 }
