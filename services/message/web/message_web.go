@@ -20,8 +20,10 @@ func NewMessageWeb() *MessageWeb {
 func (m *MessageWeb) serverHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		logging.InfoLog.Println("Received GET request")
+		msgs := m.service.GetMessagesText()
+
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "Not implemented")
+		fmt.Fprintf(w, "%v", msgs)
 
 	} else {
 		logging.InfoLog.Println("Received other request")

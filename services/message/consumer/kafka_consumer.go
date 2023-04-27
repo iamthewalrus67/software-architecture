@@ -24,7 +24,8 @@ func NewKafkaConsumer() *KafkaConsumer {
 	}
 
 	cons, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers": kafkaAddress})
+		"bootstrap.servers": kafkaAddress,
+		"group.id":          "group"})
 
 	if err != nil {
 		logging.ErrorLog.Println(err)
@@ -37,9 +38,13 @@ func NewKafkaConsumer() *KafkaConsumer {
 }
 
 func (k *KafkaConsumer) ReceiveMessages(repo repository.MessageRepository) {
+	err := k.cons.Subscribe("messages", nil)
+	if err != nil {
+		logging.ErrorLog.Println(err)
+	}
 
 	go func() {
-		msg_count := 0
+		// msgСount := 0
 		run := true
 		for run {
 			select {
@@ -49,20 +54,26 @@ func (k *KafkaConsumer) ReceiveMessages(repo repository.MessageRepository) {
 				ev := k.cons.Poll(100)
 				switch e := ev.(type) {
 				case *kafka.Message:
-					msg_count += 1
-					if msg_count%5 == 0 {
-						k.cons.Commit()
+					// msgСount += 1
+					// if msgСount%5 == 0 {
+					// 	k.cons.Commit()
+					// }
+
+					msg, err := common.MessageFromBytes(e.Value)
+					if err != nil {
+						logging.ErrorLog.Println(err)
 					}
-					logging.InfoLog.Printf("Message on %s:\n%s\n",
-						e.TopicPartition, string(e.Value))
+					logging.InfoLog.Printf("Got message: %s\n", msg)
+
+					repo.AddMessage(msg)
 
 				case kafka.PartitionEOF:
-					logging.WarningLog.Printf("Reached %v\n", e)
+					logging.ErrorLog.Printf("Reached %v\n", e)
 				case kafka.Error:
 					logging.ErrorLog.Printf("Error: %v\n", e)
 					run = false
 				default:
-					logging.WarningLog.Printf("Ignored %v\n", e)
+
 				}
 			}
 		}
@@ -72,5 +83,5 @@ func (k *KafkaConsumer) ReceiveMessages(repo repository.MessageRepository) {
 
 func (k *KafkaConsumer) Stop() {
 	k.cancelCtx()
-	// k.ctx.Done()
+	k.cons.Close()
 }

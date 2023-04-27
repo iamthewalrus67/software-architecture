@@ -31,12 +31,17 @@ func (l *LoggingWeb) serverHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		msg := common.Message{}
-		json.Unmarshal(body, &msg)
+		msg, err := common.MessageFromBytes(body)
+
+		if err != nil {
+			logging.ErrorLog.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 
 		logging.InfoLog.Println("Received new message. Saving...")
-		logging.InfoLog.Printf("UUID: %s\nMessage: %s\n", msg.UUID, msg.Text)
 		l.serv.AddMessage(msg)
+		logging.InfoLog.Printf("UUID: %s\nMessage: %s\n", msg.UUID, msg.Text)
 
 		w.WriteHeader(http.StatusOK)
 
@@ -61,5 +66,6 @@ func (l *LoggingWeb) serverHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (l *LoggingWeb) Start() {
+	logging.InfoLog.Println("Starting logging service")
 	logging.ErrorLog.Fatal(http.ListenAndServe(common.LoggingServicePort, http.HandlerFunc(l.serverHandler)))
 }

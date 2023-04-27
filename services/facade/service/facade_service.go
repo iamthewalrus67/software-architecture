@@ -6,25 +6,26 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/google/uuid"
-
 	"app/internal/common"
+	"app/internal/inet"
 	"app/internal/logging"
+	"app/services/facade/producer"
 )
 
 type FacadeService struct {
+	prod producer.Producer
 }
 
 func NewFacadeService() *FacadeService {
-	return &FacadeService{}
+	return &FacadeService{prod: producer.NewKafkaProducer()}
 }
 
-func (f *FacadeService) LogMessage(msg string) error {
-	id := uuid.New()
+func (f *FacadeService) SendMessage(msg common.Message) {
+	f.prod.SendMessage(msg)
+}
 
-	message := common.NewMessage(id, msg)
-
-	_, err := http.Post(common.LoggingServiceAddress, "text", bytes.NewReader(message.ToJSON()))
+func (f *FacadeService) LogMessage(msg common.Message) error {
+	_, err := http.Post(inet.GetRandomLoggingIp(), "text", bytes.NewReader(msg.ToJSON()))
 
 	if err != nil {
 		return err
@@ -34,7 +35,7 @@ func (f *FacadeService) LogMessage(msg string) error {
 }
 
 func (f *FacadeService) GetAllMessages() (string, error) {
-	res, err := getRequestToService(common.MessageServiceAddress)
+	res, err := getRequestToService(inet.GetRandomMessageIp())
 	if err != nil {
 		return "", err
 	}

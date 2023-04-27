@@ -1,6 +1,7 @@
 package service
 
 import (
+	"app/internal/common"
 	"app/services/message/consumer"
 	"app/services/message/repository"
 )
@@ -24,4 +25,19 @@ func (m *MessageService) StopConsumer() {
 
 func (m *MessageService) StartConsumer() {
 	m.messageConsumer.ReceiveMessages(m.repo)
+}
+
+func (m *MessageService) GetMessages() []common.Message {
+	return m.repo.GetAllMessages()
+}
+
+func (m *MessageService) GetMessagesText() []string {
+	msgs := m.GetMessages()
+
+	texts := make([]string, len(msgs))
+	for i, msg := range msgs {
+		texts[i] = msg.Text
+	}
+
+	return texts
 }

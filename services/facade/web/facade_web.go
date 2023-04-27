@@ -21,6 +21,7 @@ func NewFacadeWeb() FacadeWeb {
 }
 
 func (f *FacadeWeb) Start() {
+	logging.InfoLog.Println("Started facade service")
 	log.Fatal(http.ListenAndServe(f.port, http.HandlerFunc(f.serverHandler)))
 }
 
@@ -30,14 +31,17 @@ func (f *FacadeWeb) serverHandler(w http.ResponseWriter, r *http.Request) {
 
 		body, err := ioutil.ReadAll(r.Body)
 
-		err = f.serv.LogMessage(string(body))
+		msg := common.GenerateNewMessage(string(body))
+
+		err = f.serv.LogMessage(msg)
 
 		if err != nil {
 			logging.ErrorLog.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
-
 		}
+
+		f.serv.SendMessage(msg)
 
 		w.WriteHeader(http.StatusOK)
 

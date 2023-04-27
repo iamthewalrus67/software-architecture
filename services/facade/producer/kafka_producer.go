@@ -24,8 +24,10 @@ func NewKafkaProducer() *KafkaProducer {
 
 	prod, err := kafka.NewProducer(confMap)
 
-	logging.ErrorLog.Println(err)
-	common.PanicIfErr(err)
+	if err != err {
+		logging.ErrorLog.Println(err)
+		common.PanicIfErr(err)
+	}
 
 	return &KafkaProducer{prod: prod}
 }

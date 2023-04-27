@@ -12,9 +12,13 @@ services:
       FACADE_ENDPOINT: "facade"
       LOGGING_ENDPOINT: "logging"
       MESSAGE_ENDPOINT: "message"
+      KAFKA_ADDRESS: "kafka:9092"
     tty: true
     networks:
       - my-network
+      - kafka-network
+    depends_on:
+      - kafka
   logging:
     build:
       context: .
@@ -30,27 +34,31 @@ services:
       - my-network
       - hazelcast-network
     deploy:
-      replicas: 1
+      replicas: 3
   message:
     build:
       context: .
       dockerfile: ./services/message/Dockerfile
-    ports:
-      - "8082:8082"
     environment:
       FACADE_ENDPOINT: "facade"
       LOGGING_ENDPOINT: "logging"
       MESSAGE_ENDPOINT: "message"
+      KAFKA_ADDRESS: "kafka:9092"
     tty: true
+    deploy:
+      replicas: 2
+      endpoint_mode: dnsrr
     networks:
       - my-network
       - kafka-network
+    depends_on:
+      - kafka
   hazelcast:
     image: hazelcast/hazelcast
     networks:
       - hazelcast-network
     deploy:
-      replicas: 1
+      replicas: 3
   zookeeper:
     image: confluentinc/cp-zookeeper:6.1.1
     ports:
@@ -88,7 +96,7 @@ services:
       kafka-topics --bootstrap-server kafka:9092 --list
 
       echo -e 'Creating kafka topics'
-      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic messages --replication-factor 1 --partitions 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic messages --replication-factor 1 --partitions 2
 
       echo -e 'Successfully created the following topics:'
       kafka-topics --bootstrap-server kafka:9092 --list
