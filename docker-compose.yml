@@ -12,6 +12,7 @@ services:
       FACADE_ENDPOINT: "facade"
       LOGGING_ENDPOINT: "logging"
       MESSAGE_ENDPOINT: "message"
+      MY_ADDRESS: "facade"
       KAFKA_ADDRESS: "kafka:9092"
     tty: true
     networks:
@@ -19,7 +20,7 @@ services:
       - kafka-network
     depends_on:
       - kafka
-  logging:
+  logging-1:
     build:
       context: .
       dockerfile: ./services/logging/Dockerfile
@@ -30,12 +31,41 @@ services:
       FACADE_ENDPOINT: "facade"
       LOGGING_ENDPOINT: "logging"
       MESSAGE_ENDPOINT: "message"
+      MY_ADDRESS: "logging-1"
     networks:
       - my-network
       - hazelcast-network
-    deploy:
-      replicas: 3
-  message:
+  logging-2:
+    build:
+      context: .
+      dockerfile: ./services/logging/Dockerfile
+    ports:
+      - "8081"
+    tty: true
+    environment:
+      FACADE_ENDPOINT: "facade"
+      LOGGING_ENDPOINT: "logging"
+      MESSAGE_ENDPOINT: "message"
+      MY_ADDRESS: "logging-2"
+    networks:
+      - my-network
+      - hazelcast-network
+  logging-3:
+    build:
+      context: .
+      dockerfile: ./services/logging/Dockerfile
+    ports:
+      - "8081"
+    tty: true
+    environment:
+      FACADE_ENDPOINT: "facade"
+      LOGGING_ENDPOINT: "logging"
+      MESSAGE_ENDPOINT: "message"
+      MY_ADDRESS: "logging-3"
+    networks:
+      - my-network
+      - hazelcast-network
+  message-1:
     build:
       context: .
       dockerfile: ./services/message/Dockerfile
@@ -43,11 +73,25 @@ services:
       FACADE_ENDPOINT: "facade"
       LOGGING_ENDPOINT: "logging"
       MESSAGE_ENDPOINT: "message"
+      MY_ADDRESS: "message-1"
       KAFKA_ADDRESS: "kafka:9092"
     tty: true
-    deploy:
-      replicas: 2
-      endpoint_mode: dnsrr
+    networks:
+      - my-network
+      - kafka-network
+    depends_on:
+      - kafka
+  message-2:
+    build:
+      context: .
+      dockerfile: ./services/message/Dockerfile
+    environment:
+      FACADE_ENDPOINT: "facade"
+      LOGGING_ENDPOINT: "logging"
+      MESSAGE_ENDPOINT: "message"
+      MY_ADDRESS: "message-2"
+      KAFKA_ADDRESS: "kafka:9092"
+    tty: true
     networks:
       - my-network
       - kafka-network
@@ -104,6 +148,34 @@ services:
     networks:
       - kafka-network
       
+  consul:
+    image: consul:latest
+    ports:
+      - "8500:8500"
+    healthcheck:
+      test: [ "CMD", "consul", "members" ]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - my-network
+  setup-consul:
+    image: consul:latest
+    depends_on:
+      consul:
+        condition: service_healthy
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "            
+      consul kv put -http-addr=consul:8500 hazelcast/cluster_address "hazelcast" 
+      consul kv put -http-addr=consul:8500 hazelcast/map_name "userMessages"
+      consul kv put -http-addr=consul:8500 kafka/server "kafka:9092"
+      consul kv put -http-addr=consul:8500 kafka/topic_name "messages"
+      "
+    networks:
+      - my-network
+
 networks:
   my-network:
     name: "my-network"

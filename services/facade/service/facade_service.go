@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	consul "github.com/hashicorp/consul/api"
+
 	"app/internal/common"
 	"app/internal/inet"
 	"app/internal/logging"
@@ -13,11 +15,33 @@ import (
 )
 
 type FacadeService struct {
-	prod producer.Producer
+	prod         producer.Producer
+	consulClient *consul.Client
 }
 
 func NewFacadeService() *FacadeService {
-	return &FacadeService{prod: producer.NewKafkaProducer()}
+	config := consul.DefaultConfig()
+	config.Address = "consul:8500"
+	consulClient, err := consul.NewClient(config)
+	if err != nil {
+		logging.ErrorLog.Fatal("failed to create consul client")
+	}
+
+	reg := &consul.AgentServiceRegistration{
+		ID:      common.MyAddress,
+		Name:    "facade",
+		Port:    8080,
+		Address: "http://" + common.MyAddress,
+	}
+
+	err = consulClient.Agent().ServiceRegister(reg)
+	if err != nil {
+		logging.ErrorLog.Fatal(err)
+	}
+
+	logging.InfoLog.Printf("Service %s registered with Consul\n", common.MyAddress)
+
+	return &FacadeService{prod: producer.NewKafkaProducer(consulClient), consulClient: consulClient}
 }
 
 func (f *FacadeService) SendMessage(msg common.Message) {
@@ -25,7 +49,8 @@ func (f *FacadeService) SendMessage(msg common.Message) {
 }
 
 func (f *FacadeService) LogMessage(msg common.Message) error {
-	_, err := http.Post(inet.GetRandomLoggingIp(), "text", bytes.NewReader(msg.ToJSON()))
+	address := inet.GetRandomLoggingIp(f.consulClient)
+	_, err := http.Post(address, "text", bytes.NewReader(msg.ToJSON()))
 
 	if err != nil {
 		return err
@@ -35,7 +60,8 @@ func (f *FacadeService) LogMessage(msg common.Message) error {
 }
 
 func (f *FacadeService) GetAllMessages() (string, error) {
-	res, err := getRequestToService(inet.GetRandomMessageIp())
+	address := inet.GetRandomMessageIp(f.consulClient)
+	res, err := getRequestToService(address)
 	if err != nil {
 		return "", err
 	}
@@ -44,7 +70,8 @@ func (f *FacadeService) GetAllMessages() (string, error) {
 }
 
 func (f *FacadeService) GetAllLogs() ([]common.Message, error) {
-	res, err := getRequestToService(common.LoggingServiceAddress)
+	address := inet.GetRandomLoggingIp(f.consulClient)
+	res, err := getRequestToService(address)
 
 	if err != nil {
 		logging.ErrorLog.Println("Failed to get logs")

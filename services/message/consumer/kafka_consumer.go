@@ -44,7 +44,6 @@ func (k *KafkaConsumer) ReceiveMessages(repo repository.MessageRepository) {
 	}
 
 	go func() {
-		// msgСount := 0
 		run := true
 		for run {
 			select {
@@ -54,11 +53,6 @@ func (k *KafkaConsumer) ReceiveMessages(repo repository.MessageRepository) {
 				ev := k.cons.Poll(100)
 				switch e := ev.(type) {
 				case *kafka.Message:
-					// msgСount += 1
-					// if msgСount%5 == 0 {
-					// 	k.cons.Commit()
-					// }
-
 					msg, err := common.MessageFromBytes(e.Value)
 					if err != nil {
 						logging.ErrorLog.Println(err)

@@ -10,24 +10,12 @@ var FacadeServicePort string = ":8080"
 var LoggingServicePort string = ":8081"
 var MessageServicePort string = ":8082"
 
-var FacadeServiceAddress string = "http://" + endpointOrDefault("FACADE_ENDPOINT") + FacadeServicePort
-var LoggingServiceAddress string = "http://" + endpointOrDefault("LOGGING_ENDPOINT") + LoggingServicePort
-var MessageServiceAddress string = "http://" + endpointOrDefault("MESSAGE_ENDPOINT") + MessageServicePort
+var MyAddress string = os.Getenv("MY_ADDRESS")
 
 func PanicIfErr(err error) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func endpointOrDefault(endpoint string) string {
-	res := os.Getenv(endpoint)
-
-	if res == "" {
-		return "http://localhost"
-	}
-
-	return res
 }
 
 func DummyServerHandler(w http.ResponseWriter, r *http.Request) {

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/gob"
 
+	consul "github.com/hashicorp/consul/api"
 	"github.com/hazelcast/hazelcast-go-client"
 )
 
@@ -14,14 +15,24 @@ type HazelcastRepository struct {
 	mp     *hazelcast.Map
 }
 
-func NewHazelcastRepository() *HazelcastRepository {
+func NewHazelcastRepository(consulClient *consul.Client) *HazelcastRepository {
 	gob.Register(common.Message{}) // For some reason Hazelcast client breaks without this
 	ctx := context.TODO()
 	config := hazelcast.NewConfig()
-	config.Cluster.Network.Addresses = append(config.Cluster.Network.Addresses, "hazelcast")
+
+	clusterAdress, _, err := consulClient.KV().Get("hazelcast/cluster_address", nil)
+	if err != nil {
+		logging.ErrorLog.Fatal(err)
+	}
+	config.Cluster.Network.Addresses = append(config.Cluster.Network.Addresses, string(clusterAdress.Value))
 	client, err := hazelcast.StartNewClientWithConfig(ctx, config)
 	common.PanicIfErr(err)
-	mp, err := client.GetMap(ctx, "userMessages")
+
+	mapName, _, err := consulClient.KV().Get("hazelcast/map_name", nil)
+	if err != nil {
+		logging.ErrorLog.Fatal(err)
+	}
+	mp, err := client.GetMap(ctx, string(mapName.Value))
 	return &HazelcastRepository{client: client, mp: mp}
 }
 

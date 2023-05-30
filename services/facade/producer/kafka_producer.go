@@ -3,24 +3,24 @@ package producer
 import (
 	"app/internal/common"
 	"app/internal/logging"
-	"os"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	consul "github.com/hashicorp/consul/api"
 )
 
 type KafkaProducer struct {
-	prod *kafka.Producer
+	prod  *kafka.Producer
+	topic string
 }
 
-func NewKafkaProducer() *KafkaProducer {
-	kafkaAddress := os.Getenv("KAFKA_ADDRESS")
-
-	if kafkaAddress == "" {
-		kafkaAddress = "localhost:29092"
+func NewKafkaProducer(consul *consul.Client) *KafkaProducer {
+	kafkaAddress, _, err := consul.KV().Get("kafka/server", nil)
+	if err != nil {
+		logging.ErrorLog.Fatal(err)
 	}
 
 	confMap := &kafka.ConfigMap{
-		"bootstrap.servers": kafkaAddress}
+		"bootstrap.servers": string(kafkaAddress.Value)}
 
 	prod, err := kafka.NewProducer(confMap)
 
@@ -29,14 +29,18 @@ func NewKafkaProducer() *KafkaProducer {
 		common.PanicIfErr(err)
 	}
 
-	return &KafkaProducer{prod: prod}
+	topic, _, err := consul.KV().Get("kafka/topic_name", nil)
+	if err != nil {
+		logging.ErrorLog.Fatal(err)
+	}
+
+	return &KafkaProducer{prod: prod, topic: string(topic.Value)}
 }
 
 func (k *KafkaProducer) SendMessage(msg common.Message) {
 	deliveryChan := make(chan kafka.Event, 10000)
-	topic := "messages"
 	err := k.prod.Produce(&kafka.Message{
-		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+		TopicPartition: kafka.TopicPartition{Topic: &k.topic, Partition: kafka.PartitionAny},
 		Value:          []byte(msg.ToJSON())},
 		deliveryChan,
 	)
